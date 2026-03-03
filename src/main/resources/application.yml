@@ -1,0 +1,43 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: my-blog
+  datasource:
+    url: "jdbc:mysql://127.0.0.1:3306/blog?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8"
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: "Wzx86699"
+    hikari:
+      minimum-idle: 1
+      maximum-pool-size: 10
+      connection-timeout: 30000
+      pool-name: HikariPool
+  thymeleaf:
+    cache: false
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    show-sql: true
+    properties:
+      hibernate.format_sql: true
+  flyway:
+    enabled: false # 临时禁用 Flyway，避免 Unsupported Database 错误阻止启动
+
+logging:
+  level:
+    root: info
+    com.southwestasiafloat.blog: debug
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

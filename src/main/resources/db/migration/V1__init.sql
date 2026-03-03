@@ -1,0 +1,12 @@
+CREATE TABLE IF NOT EXISTS articles (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  slug VARCHAR(255) NOT NULL UNIQUE,
+  content TEXT,
+  summary VARCHAR(512),
+  author VARCHAR(255) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'published',
+  created_at DATETIME,
+  updated_at DATETIME
+);
+
