@@ -21,15 +21,16 @@ spring:
   mvc:
     pathmatch:
       matching-strategy: ant_path_matcher
-  jpa:
-    hibernate:
-      ddl-auto: update
-    open-in-view: false
-    show-sql: true
-    properties:
-      hibernate.format_sql: true
   flyway:
-    enabled: false # 临时禁用 Flyway，避免 Unsupported Database 错误阻止启动
+    enabled: false
+  sql:
+    init:
+      mode: never
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
 logging:
   level:
