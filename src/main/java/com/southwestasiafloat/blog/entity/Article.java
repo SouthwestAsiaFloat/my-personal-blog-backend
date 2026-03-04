@@ -24,7 +24,8 @@ public class Article {
     @TableField("category_id")
     private Long categoryId;
 
-    private String status = "published";
+    // 状态：1 = 发布，0 = 草稿（默认发布）
+    private int status = 1;
 
     @TableField("create_time")
     private LocalDateTime createTime;
@@ -84,11 +85,11 @@ public class Article {
         this.categoryId = categoryId;
     }
 
-    public String getStatus() {
+    public int getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(int status) {
         this.status = status;
     }
 

@@ -22,6 +22,16 @@ public class ArticleServiceImpl implements ArticleService {
         return articleMapper.selectPage(page, new LambdaQueryWrapper<>());
     }
 
+    // 按状态分页查询
+    @Override
+    public IPage<Article> listByStatus(Page<Article> page, Integer status) {
+        LambdaQueryWrapper<Article> qw = new LambdaQueryWrapper<>();
+        if (status != null) {
+            qw.eq(Article::getStatus, status);
+        }
+        return articleMapper.selectPage(page, qw);
+    }
+
     // 单独查询
     @Override
     public Optional<Article> getById(Long id) {
