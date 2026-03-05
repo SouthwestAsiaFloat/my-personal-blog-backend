@@ -20,6 +20,9 @@ public interface UserService {
     /** 注册新用户并返回创建的用户对象（注意：实现应处理密码哈希、唯一性校验等） */
     User register(User user);
 
+    /** 更新用户信息（按 id，用请求体里的字段整体更新；需要自行处理密码哈希等） */
+    User update(Long id, User update);
+
     // --------- 建议的额外方法（常见功能） ---------
 
 //    /** 获取当前登录用户（若未登录可返回 Optional.empty()） */
