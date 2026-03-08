@@ -42,3 +42,8 @@ management:
     web:
       exposure:
         include: health,info
+
+jwt:
+  secret: ${MY_SECRET_KEY:}
+  accessExpirationMs: 1800000
+  refreshExpirationMs: 604800000
