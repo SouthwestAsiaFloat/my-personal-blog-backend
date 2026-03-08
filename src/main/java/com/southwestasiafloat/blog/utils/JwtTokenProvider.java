@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
+import java.util.Base64;
 import java.util.Date;
 
 /**
@@ -31,7 +32,23 @@ public class JwtTokenProvider {
 
     // 内部签名 Key
     private Key getSigningKey() {
-        return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+        byte[] keyBytes = null;
+        if (jwtSecret == null) {
+            throw new IllegalStateException("JWT secret is not configured");
+        }
+        // Try to interpret secret as Base64 first (common when generating random bytes)
+        try {
+            byte[] decoded = Base64.getDecoder().decode(jwtSecret);
+            if (decoded != null && decoded.length >= 32) {
+                keyBytes = decoded;
+            }
+        } catch (IllegalArgumentException ignored) {
+            // not valid base64, fall back to UTF-8 bytes
+        }
+        if (keyBytes == null) {
+            keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
+        }
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 
     /**
