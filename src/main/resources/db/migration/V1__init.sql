@@ -1,5 +1,5 @@
 -- V1__init.sql
--- Initial schema for my-blog project (creates user, category, tag, article, article_tag, comment)
+-- Initial schema for my-blog project (creates user, category, tag, article, article_tag, comment, refresh_token)
 -- Idempotent: uses IF NOT EXISTS where appropriate. Be careful: DROP DATABASE has been omitted here to avoid accidental data loss.
 
 CREATE DATABASE IF NOT EXISTS `blog` CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
@@ -76,3 +76,21 @@ CREATE TABLE IF NOT EXISTS `comment` (
   CONSTRAINT `fk_comment_article` FOREIGN KEY (`article_id`) REFERENCES `article`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_comment_user` FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 刷新令牌表 (RefreshToken)
+CREATE TABLE IF NOT EXISTS `refresh_token` (
+  `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` BIGINT NOT NULL,
+  `token_hash` VARCHAR(255) NOT NULL,
+  `issued_at` DATETIME NOT NULL,
+  `expires_at` DATETIME NOT NULL,
+  `revoked` TINYINT(1) NOT NULL DEFAULT 0,
+  `revoked_at` DATETIME NULL,
+  `replaced_by` VARCHAR(255) NULL,
+  `ip` VARCHAR(45) NULL,
+  `user_agent` VARCHAR(255) NULL,
+  INDEX `idx_rt_user` (`user_id`),
+  INDEX `idx_rt_hash` (`token_hash`),
+  CONSTRAINT `fk_rt_user` FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

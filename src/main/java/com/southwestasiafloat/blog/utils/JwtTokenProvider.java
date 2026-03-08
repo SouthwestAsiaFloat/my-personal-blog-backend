@@ -103,4 +103,13 @@ public class JwtTokenProvider {
     public Claims getClaimsFromToken(String token) {
         return Jwts.parserBuilder().setSigningKey(getSigningKey()).build().parseClaimsJws(token).getBody();
     }
+
+    // 公共 getter，供其他 service 使用过期时长
+    public Long getAccessTokenValidityInMillis() {
+        return accessTokenValidityInMillis;
+    }
+
+    public Long getRefreshTokenValidityInMillis() {
+        return refreshTokenValidityInMillis;
+    }
 }

@@ -4,20 +4,27 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.southwestasiafloat.blog.dto.UserLoginDto;
 import com.southwestasiafloat.blog.dto.UserRegisterDto;
 import com.southwestasiafloat.blog.dto.UserUpdateDto;
+import com.southwestasiafloat.blog.entity.RefreshToken;
 import com.southwestasiafloat.blog.entity.User;
 import com.southwestasiafloat.blog.exception.AuthenticationException;
 import com.southwestasiafloat.blog.exception.ResourceNotFoundException;
+import com.southwestasiafloat.blog.mapper.RefreshTokenMapper;
 import com.southwestasiafloat.blog.mapper.UserMapper;
 import com.southwestasiafloat.blog.service.UserService;
 import com.southwestasiafloat.blog.utils.UserValidator;
+import com.southwestasiafloat.blog.utils.JwtTokenProvider;
+import com.southwestasiafloat.blog.vo.AuthVo;
 import com.southwestasiafloat.blog.vo.UserVo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -28,13 +35,19 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
+
+    @Autowired
+    private RefreshTokenMapper refreshTokenMapper;
+
     @Override
     public Optional<UserVo> getById(Long id) {
         return Optional.ofNullable(userMapper.selectById(id)).map(this::toVo);
     }
 
     @Override
-    public void login(UserLoginDto dto) {
+    public AuthVo login(UserLoginDto dto) throws Exception {
         if (dto == null) throw new IllegalArgumentException("登录参数不能为空");
         String username = UserValidator.normalizeUsername(dto.getUsername());
         String password = dto.getPassword();
@@ -47,8 +60,28 @@ public class UserServiceImpl implements UserService {
             throw new AuthenticationException("用户不存在");
         }
         if (passwordEncoder.matches(password, user.getPassword())) {
-            // TODO: 实现 JWT 或 Session 逻辑
-            System.out.println("先假装登录成功了，后续实现 JWT 或 Session");
+            // generate tokens
+            String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getRole());
+            // generate refresh raw token
+            String raw = UUID.randomUUID() + "-" + UUID.randomUUID();
+            String hash = sha256(raw);
+
+            RefreshToken rt = new RefreshToken();
+            rt.setUserId(user.getId());
+            rt.setTokenHash(hash);
+            rt.setIssuedAt(LocalDateTime.now());
+            long refreshMs = jwtTokenProvider.getRefreshTokenValidityInMillis() == null ? 0L : jwtTokenProvider.getRefreshTokenValidityInMillis();
+            rt.setExpiresAt(LocalDateTime.now().plusSeconds(refreshMs / 1000));
+            rt.setRevoked(false);
+            rt.setIp(dto.getIp());
+            rt.setUserAgent(dto.getUserAgent());
+            refreshTokenMapper.insert(rt);
+
+            return AuthVo.builder()
+                    .accessToken(accessToken)
+                    .refreshToken(raw)
+                    .expiresIn(jwtTokenProvider.getAccessTokenValidityInMillis())
+                    .build();
         } else {
             throw new AuthenticationException("密码错误");
         }
@@ -141,5 +174,13 @@ public class UserServiceImpl implements UserService {
                 .createTime(user.getCreateTime())
                 .updateTime(user.getUpdateTime())
                 .build();
+    }
+
+    private String sha256(String input) throws Exception {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        byte[] d = md.digest(input.getBytes(StandardCharsets.UTF_8));
+        StringBuilder sb = new StringBuilder();
+        for (byte b : d) sb.append(String.format("%02x", b));
+        return sb.toString();
     }
 }

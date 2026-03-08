@@ -4,6 +4,7 @@ import com.southwestasiafloat.blog.dto.UserLoginDto;
 import com.southwestasiafloat.blog.dto.UserRegisterDto;
 import com.southwestasiafloat.blog.dto.UserUpdateDto;
 import com.southwestasiafloat.blog.vo.UserVo;
+import com.southwestasiafloat.blog.vo.AuthVo;
 
 import java.util.Optional;
 
@@ -15,8 +16,8 @@ public interface UserService {
     /** 根据 id 查找用户（返回 VO，避免暴露敏感字段）。 */
     Optional<UserVo> getById(Long id);
 
-    /** 登录：校验凭证。 */
-    void login(UserLoginDto dto);
+    /** 登录：校验凭证并返回认证令牌（access + refresh）。 */
+    AuthVo login(UserLoginDto dto) throws Exception;
 
     /** 注册新用户并返回创建后的用户视图。 */
     UserVo register(UserRegisterDto dto);

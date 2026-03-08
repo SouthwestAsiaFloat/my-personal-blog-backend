@@ -14,5 +14,6 @@ public class UserLoginDto {
     private String username;
     private String password;
     private String token = null; // TODO: 可选字段，登录成功后返回的 JWT token
+    private String ip; // 客户端 IP
+    private String userAgent; // 客户端 UA
 }
-
