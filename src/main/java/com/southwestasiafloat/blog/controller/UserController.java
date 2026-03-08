@@ -6,11 +6,13 @@ import com.southwestasiafloat.blog.dto.UserRegisterDto;
 import com.southwestasiafloat.blog.dto.UserUpdateDto;
 import com.southwestasiafloat.blog.service.UserService;
 import com.southwestasiafloat.blog.vo.UserVo;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("")
+@Slf4j
 public class UserController {
     @Autowired
     private UserService userService;

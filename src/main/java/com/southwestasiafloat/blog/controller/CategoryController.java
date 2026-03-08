@@ -5,11 +5,13 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.southwestasiafloat.blog.common.Result;
 import com.southwestasiafloat.blog.entity.Category;
 import com.southwestasiafloat.blog.service.CategoryService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/categories")
+@Slf4j
 public class CategoryController {
 
     @Autowired

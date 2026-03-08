@@ -8,11 +8,13 @@ import com.southwestasiafloat.blog.dto.CommentUpdateDto;
 import com.southwestasiafloat.blog.entity.Comment;
 import com.southwestasiafloat.blog.service.CommentService;
 import com.southwestasiafloat.blog.vo.CommentVo;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/comments")
+@Slf4j
 public class CommentController {
 
     @Autowired

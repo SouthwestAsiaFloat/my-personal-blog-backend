@@ -8,11 +8,13 @@ import com.southwestasiafloat.blog.dto.ArticleUpdateDto;
 import com.southwestasiafloat.blog.entity.Article;
 import com.southwestasiafloat.blog.service.ArticleService;
 import com.southwestasiafloat.blog.vo.ArticleVo;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("") // 使用根路径，应用的 context-path 已设为 /api
+@Slf4j
 public class ArticleController {
 
     @Autowired
