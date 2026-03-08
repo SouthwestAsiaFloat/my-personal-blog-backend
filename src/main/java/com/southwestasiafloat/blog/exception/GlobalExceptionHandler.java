@@ -32,6 +32,13 @@ public class GlobalExceptionHandler {
                 .body(Result.error(400, ex.getMessage()));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseBody
+    public ResponseEntity<Result<Void>> handleIllegalArg(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Result.error(400, ex.getMessage()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseBody
     public ResponseEntity<Result<Void>> handleValidation(MethodArgumentNotValidException ex) {
@@ -49,4 +56,3 @@ public class GlobalExceptionHandler {
                 .body(Result.error(500, "internal error"));
     }
 }
-
