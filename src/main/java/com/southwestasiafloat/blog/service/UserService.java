@@ -5,6 +5,7 @@ import com.southwestasiafloat.blog.dto.UserRegisterDto;
 import com.southwestasiafloat.blog.dto.UserUpdateDto;
 import com.southwestasiafloat.blog.vo.UserVo;
 import com.southwestasiafloat.blog.vo.AuthVo;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
@@ -24,4 +25,9 @@ public interface UserService {
 
     /** 更新用户信息（PATCH 语义：仅更新传入字段）。 */
     UserVo update(Long id, UserUpdateDto update);
+
+    @Transactional
+    AuthVo refresh(String refreshToken, String ip, String userAgent) throws Exception;
+
+    void logout(String refreshToken) throws Exception;
 }

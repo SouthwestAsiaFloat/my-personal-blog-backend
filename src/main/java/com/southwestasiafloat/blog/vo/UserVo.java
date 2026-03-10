@@ -20,6 +20,5 @@ public class UserVo {
     private String role;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
-    private String token; // TODO 配置jwt后返回token
 }
 

@@ -35,7 +35,13 @@ public class ArticleController {
         Page<Article> p = new Page<>(page + 1L, size);
         return Result.ok(articleService.listByStatus(p, 1));
     }
-
+    // 获取全部文章列表,支持分页
+    @GetMapping("/article/list/all")
+    public Result<IPage<ArticleVo>> getArticleListAll(@RequestParam(defaultValue = "0") int page,
+                                                        @RequestParam(defaultValue = "10") int size) {
+        Page<Article> p = new Page<>(page + 1L, size);
+        return Result.ok(articleService.listByStatus(p, null));
+    }
     // 获取草稿文章列表, 支持分页
     @GetMapping("/article/list/draft")
     public Result<IPage<ArticleVo>> getArticleListDraft(@RequestParam(defaultValue = "0") int page,

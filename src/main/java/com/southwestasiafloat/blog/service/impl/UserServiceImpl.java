@@ -87,6 +87,78 @@ public class UserServiceImpl implements UserService {
         }
     }
 
+    @Transactional
+    @Override
+    public AuthVo refresh(String refreshToken, String ip, String userAgent) throws Exception {
+        if (refreshToken == null || refreshToken.trim().isEmpty()) {
+            throw new IllegalArgumentException("refreshToken 不能为空");
+        }
+
+        String oldHash = sha256(refreshToken);
+        RefreshToken existing = refreshTokenMapper.selectOne(
+                new QueryWrapper<RefreshToken>()
+                        .eq("token_hash", oldHash)
+                        .last("LIMIT 1")
+        );
+        if (existing == null) {
+            throw new AuthenticationException("refresh token 无效");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (Boolean.TRUE.equals(existing.getRevoked())) {
+            throw new AuthenticationException("refresh token 已被撤销");
+        }
+        if (existing.getExpiresAt() == null || existing.getExpiresAt().isBefore(now)) {
+            throw new AuthenticationException("refresh token 已过期");
+        }
+
+        User user = userMapper.selectById(existing.getUserId());
+        if (user == null) {
+            throw new AuthenticationException("用户不存在");
+        }
+
+        // refresh token rotation: 旧 refresh 立即作废并替换为新 refresh
+        String newRaw = generateRawRefreshToken();
+        String newHash = sha256(newRaw);
+        existing.setRevoked(true);
+        existing.setRevokedAt(now);
+        existing.setReplacedBy(newHash);
+        refreshTokenMapper.updateById(existing);
+
+        insertRefreshToken(user.getId(), newRaw, ip, userAgent);
+
+        String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getRole());
+        return AuthVo.builder()
+                .accessToken(accessToken)
+                .refreshToken(newRaw)
+                .expiresIn(jwtTokenProvider.getAccessTokenValidityInMillis())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public void logout(String refreshToken) throws Exception {
+        if (refreshToken == null || refreshToken.trim().isEmpty()) {
+            throw new IllegalArgumentException("refreshToken 不能为空");
+        }
+
+        String hash = sha256(refreshToken);
+        RefreshToken existing = refreshTokenMapper.selectOne(
+                new QueryWrapper<RefreshToken>()
+                        .eq("token_hash", hash)
+                        .last("LIMIT 1")
+        );
+
+        // 幂等：已经不存在或已撤销时，直接返回成功。
+        if (existing == null || Boolean.TRUE.equals(existing.getRevoked())) {
+            return;
+        }
+
+        existing.setRevoked(true);
+        existing.setRevokedAt(LocalDateTime.now());
+        refreshTokenMapper.updateById(existing);
+    }
+
     @Override
     @Transactional
     public UserVo register(UserRegisterDto dto) {
@@ -174,6 +246,25 @@ public class UserServiceImpl implements UserService {
                 .createTime(user.getCreateTime())
                 .updateTime(user.getUpdateTime())
                 .build();
+    }
+
+    private String generateRawRefreshToken() {
+        return UUID.randomUUID() + "-" + UUID.randomUUID();
+    }
+
+    private void insertRefreshToken(Long userId, String rawRefreshToken, String ip, String userAgent) throws Exception {
+        RefreshToken rt = new RefreshToken();
+        rt.setUserId(userId);
+        rt.setTokenHash(sha256(rawRefreshToken));
+        rt.setIssuedAt(LocalDateTime.now());
+        long refreshMs = jwtTokenProvider.getRefreshTokenValidityInMillis() == null
+                ? 0L
+                : jwtTokenProvider.getRefreshTokenValidityInMillis();
+        rt.setExpiresAt(LocalDateTime.now().plusSeconds(refreshMs / 1000));
+        rt.setRevoked(false);
+        rt.setIp(ip);
+        rt.setUserAgent(userAgent);
+        refreshTokenMapper.insert(rt);
     }
 
     private String sha256(String input) throws Exception {
