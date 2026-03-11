@@ -28,10 +28,16 @@ public class ArticleServiceImpl implements ArticleService {
     }
 
     @Override
-    public IPage<ArticleVo> listByStatus(Page<Article> page, Integer status) {
+    public IPage<ArticleVo> listBySearch(Page<Article> page, Integer status, Long categoryId, String title) {
         LambdaQueryWrapper<Article> qw = new LambdaQueryWrapper<>();
         if (status != null) {
             qw.eq(Article::getStatus, status);
+        }
+        if (categoryId != null) {
+            qw.eq(Article::getCategoryId, categoryId);
+        }
+        if (title != null && !title.trim().isEmpty()) {
+            qw.like(Article::getTitle, title.trim());
         }
         IPage<Article> entityPage = articleMapper.selectPage(page, qw);
         return entityPage.convert(this::toVo);

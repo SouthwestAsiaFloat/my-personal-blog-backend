@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.southwestasiafloat.blog.common.Result;
 import com.southwestasiafloat.blog.dto.ArticleCreateDto;
 import com.southwestasiafloat.blog.dto.ArticleUpdateDto;
+import com.southwestasiafloat.blog.dto.ArticleRequestDto;
 import com.southwestasiafloat.blog.entity.Article;
 import com.southwestasiafloat.blog.service.ArticleService;
 import com.southwestasiafloat.blog.vo.ArticleVo;
@@ -28,28 +29,34 @@ public class ArticleController {
                 .orElse(Result.error(404, "not found"));
     }
 
+
     // 获取非草稿文章列表，支持分页
-    @GetMapping("/article/list")
-    public Result<IPage<ArticleVo>> getArticleList(@RequestParam(defaultValue = "0") int page,
-                                                   @RequestParam(defaultValue = "10") int size) {
-        Page<Article> p = new Page<>(page + 1L, size);
-        return Result.ok(articleService.listByStatus(p, 1));
-    }
+//    @GetMapping("/article/list")
+//    public Result<IPage<ArticleVo>> getArticleList(@RequestParam(defaultValue = "0") int page,
+//                                                   @RequestParam(defaultValue = "10") int size) {
+//        Page<Article> p = new Page<>(page + 1L, size);
+//        return Result.ok(articleService.listByStatus(p, 1));
+//    }
     // 获取全部文章列表,支持分页
-    @GetMapping("/article/list/all")
-    public Result<IPage<ArticleVo>> getArticleListAll(@RequestParam(defaultValue = "0") int page,
-                                                        @RequestParam(defaultValue = "10") int size) {
-        Page<Article> p = new Page<>(page + 1L, size);
-        return Result.ok(articleService.listByStatus(p, null));
+    @PostMapping("/article/list")
+    public Result<IPage<ArticleVo>> getArticleListAll(@RequestBody ArticleRequestDto dto)     {
+        Page<Article> p = new Page<>(dto.getPage() + 1L, dto.getSize());
+        Result<IPage<ArticleVo>> yourListresult = Result.ok(articleService.listBySearch(p, dto.getStatus(), dto.getCategoryId(), dto.getTitle()));
+        if(yourListresult.getData().getRecords().isEmpty()){
+            return Result.error(404, "文章未找到");
+        }
+        else {
+            return yourListresult;
+        }
     }
     // 获取草稿文章列表, 支持分页
-    @GetMapping("/article/list/draft")
-    public Result<IPage<ArticleVo>> getArticleListDraft(@RequestParam(defaultValue = "0") int page,
-                                                        @RequestParam(defaultValue = "10") int size) {
-        Page<Article> p = new Page<>(page + 1L, size);
-        return Result.ok(articleService.listByStatus(p, 0));
-    }
-
+//    @GetMapping("/article/list/draft")
+//    public Result<IPage<ArticleVo>> getArticleListDraft(@RequestParam(defaultValue = "0") int page,
+//                                                        @RequestParam(defaultValue = "10") int size) {
+//        Page<Article> p = new Page<>(page + 1L, size);
+//        return Result.ok(articleService.listByStatus(p, 0));
+//    }
+    /*    我是分隔栏     */
     // 创建文章
     @PostMapping("/article")
     public Result<ArticleVo> createArticle(@RequestBody ArticleCreateDto dto) {
