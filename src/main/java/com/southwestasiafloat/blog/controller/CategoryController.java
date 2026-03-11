@@ -19,9 +19,10 @@ public class CategoryController {
 
     @GetMapping
     public Result<IPage<Category>> list(@RequestParam(defaultValue = "0") int page,
-                                        @RequestParam(defaultValue = "10") int size) {
+                                        @RequestParam(defaultValue = "10") int size,
+                                        @RequestParam(required = false) String name) {
         Page<Category> p = new Page<>(page + 1L, size);
-        return Result.ok(categoryService.list(p));
+        return Result.ok(categoryService.list(p, name));
     }
 
     @GetMapping("/{id}")
@@ -52,4 +53,3 @@ public class CategoryController {
         return Result.ok();
     }
 }
-

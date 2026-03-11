@@ -28,6 +28,8 @@ public class UserController {
                 .orElse(Result.error(404, "not found"));
     }
 
+    //@获取所有用户信息
+
     // 登录（使用对象请求体）
     @PostMapping("/login")
     public Result<AuthVo> login(@RequestBody UserLoginDto dto) throws Exception {

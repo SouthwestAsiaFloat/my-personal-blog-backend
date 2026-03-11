@@ -19,8 +19,12 @@ public class TagServiceImpl implements TagService {
     private TagMapper tagMapper;
 
     @Override
-    public IPage<Tag> list(Page<Tag> page) {
-        return tagMapper.selectPage(page, null);
+    public IPage<Tag> list(Page<Tag> page, String name) {
+        LambdaQueryWrapper<Tag> qw = new LambdaQueryWrapper<>();
+        if (name != null && !name.trim().isEmpty()) {
+            qw.like(Tag::getName, name.trim());
+        }
+        return tagMapper.selectPage(page, qw);
     }
 
     @Override

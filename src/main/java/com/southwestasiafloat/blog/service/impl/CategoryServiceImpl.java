@@ -18,8 +18,12 @@ public class CategoryServiceImpl implements CategoryService {
     private CategoryMapper categoryMapper;
 
     @Override
-    public IPage<Category> list(Page<Category> page) {
-        return categoryMapper.selectPage(page, null);
+    public IPage<Category> list(Page<Category> page, String name) {
+        LambdaQueryWrapper<Category> qw = new LambdaQueryWrapper<>();
+        if (name != null && !name.trim().isEmpty()) {
+            qw.like(Category::getName, name.trim());
+        }
+        return categoryMapper.selectPage(page, qw);
     }
 
     @Override

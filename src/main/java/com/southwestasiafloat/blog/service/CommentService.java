@@ -14,11 +14,8 @@ import java.util.Optional;
  */
 public interface CommentService {
 
-    /**
-     * 分页查询评论。
-     * articleId 非空时按文章过滤，为 null 时查询全部评论。
-     */
-    IPage<CommentVo> list(Long articleId, Page<Comment> page);
+    // 支持按 articleId、userId 或 nickname 过滤（其中 userId 优先），page 为 MyBatis-Plus 的 Page 对象
+    IPage<CommentVo> list(Long articleId, Page<Comment> page, Long userId, String nickname);
 
     /** 根据评论 ID 查询单条评论。 */
     Optional<CommentVo> getById(Long id);
@@ -32,4 +29,3 @@ public interface CommentService {
     /** 删除评论。 */
     void delete(Long id);
 }
-

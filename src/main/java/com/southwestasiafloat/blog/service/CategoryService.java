@@ -10,10 +10,10 @@ import java.util.Optional;
  * Category 领域的服务接口，定义基础的 CRUD 能力。
  */
 public interface CategoryService {
-    IPage<Category> list(Page<Category> page);
+    // 支持按 name 模糊搜索
+    IPage<Category> list(Page<Category> page, String name);
     Optional<Category> getById(Long id);
     Category create(Category category);
     Category update(Long id, Category update);
     void delete(Long id);
 }
-

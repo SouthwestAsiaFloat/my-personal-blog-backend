@@ -20,17 +20,28 @@ public class CommentController {
     @Autowired
     private CommentService commentService;
 
-    /**
-     * 分页查询评论：
-     * - articleId 为空时返回全部评论
-     * - articleId 非空时按文章过滤
-     */
+
     @GetMapping
     public Result<IPage<CommentVo>> list(@RequestParam(required = false) Long articleId,
                                          @RequestParam(defaultValue = "0") int page,
-                                         @RequestParam(defaultValue = "10") int size) {
+                                         @RequestParam(defaultValue = "10") int size,
+                                         @RequestParam(required = false) Long userId,
+                                         @RequestParam(required = false) String nickname) {
         Page<Comment> p = new Page<>(page + 1L, size);
-        return Result.ok(commentService.list(articleId, p));
+        Result<IPage<CommentVo>> result = new Result<>();
+        try {
+            IPage<CommentVo> commentPage = commentService.list(articleId, p, userId, nickname);
+            if (commentPage.getRecords().isEmpty()) {
+                return Result.error(404, "Comments not found");
+            }
+            result.setData(commentPage);
+            result.setCode(200);
+            result.setMessage("Success");
+        } catch (Exception e) {
+            log.error("Error listing comments", e);
+            return Result.error(500, "Internal server error");
+        }
+        return result;
     }
 
     /** 根据 id 查询单条评论。 */
@@ -72,4 +83,3 @@ public class CommentController {
         }
     }
 }
-

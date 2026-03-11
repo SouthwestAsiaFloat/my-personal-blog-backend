@@ -15,6 +15,8 @@ public class CommentVo {
     private Long id;
     private Long articleId;
     private Long userId;
+    private String nickname;
+    private String articleTitle; // 新增：文章标题
     private String content;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;

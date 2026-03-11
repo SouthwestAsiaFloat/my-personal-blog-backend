@@ -19,9 +19,10 @@ public class TagController {
 
     @GetMapping
     public Result<IPage<Tag>> list(@RequestParam(defaultValue = "0") int page,
-                                   @RequestParam(defaultValue = "10") int size) {
+                                   @RequestParam(defaultValue = "10") int size,
+                                   @RequestParam(required = false ) String name) {
         Page<Tag> p = new Page<>(page + 1L, size);
-        return Result.ok(tagService.list(p));
+        return Result.ok(tagService.list(p, name));
     }
 
     @GetMapping("/{id}")
@@ -59,4 +60,3 @@ public class TagController {
         }
     }
 }
-
