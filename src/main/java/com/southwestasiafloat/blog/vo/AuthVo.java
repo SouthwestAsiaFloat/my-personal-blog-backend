@@ -13,5 +13,5 @@ public class AuthVo {
     private String accessToken;
     private String refreshToken;
     private Long expiresIn; // milliseconds
+    private Boolean isAdmin;
 }
-

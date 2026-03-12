@@ -59,6 +59,7 @@ public class AuthServiceImpl implements AuthService {
                 .accessToken(accessToken)
                 .refreshToken(rawRefreshToken)
                 .expiresIn(jwtTokenProvider.getAccessTokenValidityInMillis())
+                .isAdmin(isAdminRole(user.getRole()))
                 .build();
     }
 
@@ -134,6 +135,7 @@ public class AuthServiceImpl implements AuthService {
                 .accessToken(accessToken)
                 .refreshToken(newRaw)
                 .expiresIn(jwtTokenProvider.getAccessTokenValidityInMillis())
+                .isAdmin(isAdminRole(user.getRole()))
                 .build();
     }
 
@@ -184,6 +186,13 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    private boolean isAdminRole(String role) {
+        if (role == null) {
+            return false;
+        }
+        return "ADMIN".equalsIgnoreCase(role) || "ROLE_ADMIN".equalsIgnoreCase(role);
+    }
+
     private String generateRawRefreshToken() {
         return UUID.randomUUID() + "-" + UUID.randomUUID();
     }
@@ -198,4 +207,3 @@ public class AuthServiceImpl implements AuthService {
         return sb.toString();
     }
 }
-
