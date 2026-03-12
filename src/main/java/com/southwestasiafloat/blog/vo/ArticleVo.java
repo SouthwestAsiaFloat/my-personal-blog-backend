@@ -19,8 +19,9 @@ public class ArticleVo {
     private String summary;
     private Long userId;
     private Long categoryId;
+    // 新增：返回分类名称，避免前端根据 id 再次请求
+    private String categoryName;
     private int status;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }
-

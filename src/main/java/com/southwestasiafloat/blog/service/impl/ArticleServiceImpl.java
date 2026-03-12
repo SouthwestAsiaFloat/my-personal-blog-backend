@@ -6,14 +6,17 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.southwestasiafloat.blog.dto.ArticleCreateDto;
 import com.southwestasiafloat.blog.dto.ArticleUpdateDto;
 import com.southwestasiafloat.blog.entity.Article;
+import com.southwestasiafloat.blog.entity.Category;
 import com.southwestasiafloat.blog.mapper.ArticleMapper;
+import com.southwestasiafloat.blog.mapper.CategoryMapper;
 import com.southwestasiafloat.blog.service.ArticleService;
 import com.southwestasiafloat.blog.vo.ArticleVo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class ArticleServiceImpl implements ArticleService {
@@ -21,10 +24,14 @@ public class ArticleServiceImpl implements ArticleService {
     @Autowired
     private ArticleMapper articleMapper;
 
+    @Autowired
+    private CategoryMapper categoryMapper;
+
     @Override
     public IPage<ArticleVo> list(Page<Article> page) {
         IPage<Article> entityPage = articleMapper.selectPage(page, new LambdaQueryWrapper<>());
-        return entityPage.convert(this::toVo);
+        // 批量加载 category name
+        return convertPageWithCategory(entityPage);
     }
 
     @Override
@@ -40,12 +47,20 @@ public class ArticleServiceImpl implements ArticleService {
             qw.like(Article::getTitle, title.trim());
         }
         IPage<Article> entityPage = articleMapper.selectPage(page, qw);
-        return entityPage.convert(this::toVo);
+        return convertPageWithCategory(entityPage);
     }
 
     @Override
     public Optional<ArticleVo> getById(Long id) {
-        return Optional.ofNullable(articleMapper.selectById(id)).map(this::toVo);
+        Article a = articleMapper.selectById(id);
+        if (a == null) return Optional.empty();
+        ArticleVo vo = toVo(a);
+        // 加载 category name
+        if (vo.getCategoryId() != null) {
+            Category c = categoryMapper.selectById(vo.getCategoryId());
+            if (c != null) vo.setCategoryName(c.getName());
+        }
+        return Optional.of(vo);
     }
 
     @Override
@@ -68,7 +83,12 @@ public class ArticleServiceImpl implements ArticleService {
         article.setUpdateTime(now);
 
         articleMapper.insert(article);
-        return toVo(article);
+        ArticleVo vo = toVo(article);
+        if (vo.getCategoryId() != null) {
+            Category c = categoryMapper.selectById(vo.getCategoryId());
+            if (c != null) vo.setCategoryName(c.getName());
+        }
+        return vo;
     }
 
     @Override
@@ -92,7 +112,12 @@ public class ArticleServiceImpl implements ArticleService {
         existing.setUpdateTime(LocalDateTime.now());
 
         articleMapper.updateById(existing);
-        return toVo(existing);
+        ArticleVo vo = toVo(existing);
+        if (vo.getCategoryId() != null) {
+            Category c = categoryMapper.selectById(vo.getCategoryId());
+            if (c != null) vo.setCategoryName(c.getName());
+        }
+        return vo;
     }
 
     @Override
@@ -113,5 +138,28 @@ public class ArticleServiceImpl implements ArticleService {
                 .createTime(article.getCreateTime())
                 .updateTime(article.getUpdateTime())
                 .build();
+    }
+
+    private IPage<ArticleVo> convertPageWithCategory(IPage<Article> entityPage) {
+        // 收集 categoryId
+        List<Long> categoryIds = entityPage.getRecords().stream()
+                .map(Article::getCategoryId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<Long, String> categoryNameMap = Collections.emptyMap();
+        if (!categoryIds.isEmpty()) {
+            List<Category> categories = categoryMapper.selectBatchIds(categoryIds);
+            categoryNameMap = categories.stream()
+                    .collect(Collectors.toMap(Category::getId, Category::getName, (a, b) -> a));
+        }
+
+        final Map<Long, String> finalCategoryNameMap = categoryNameMap;
+        return entityPage.convert(article -> {
+            ArticleVo vo = toVo(article);
+            vo.setCategoryName(finalCategoryNameMap.get(article.getCategoryId()));
+            return vo;
+        });
     }
 }
