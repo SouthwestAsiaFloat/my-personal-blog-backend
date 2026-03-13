@@ -32,7 +32,7 @@ public class CommentController {
         try {
             IPage<CommentVo> commentPage = commentService.list(articleId, p, userId, nickname);
             if (commentPage.getRecords().isEmpty()) {
-                return Result.error(404, "Comments not found");
+                return Result.ok();
             }
             result.setData(commentPage);
             result.setCode(200);
