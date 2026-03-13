@@ -59,6 +59,7 @@ public class AuthServiceImpl implements AuthService {
                 .accessToken(accessToken)
                 .refreshToken(rawRefreshToken)
                 .expiresIn(jwtTokenProvider.getAccessTokenValidityInMillis())
+                .userId(user.getId())
                 .isAdmin(isAdminRole(user.getRole()))
                 .build();
     }
@@ -135,6 +136,7 @@ public class AuthServiceImpl implements AuthService {
                 .accessToken(accessToken)
                 .refreshToken(newRaw)
                 .expiresIn(jwtTokenProvider.getAccessTokenValidityInMillis())
+                .userId(user.getId())
                 .isAdmin(isAdminRole(user.getRole()))
                 .build();
     }
