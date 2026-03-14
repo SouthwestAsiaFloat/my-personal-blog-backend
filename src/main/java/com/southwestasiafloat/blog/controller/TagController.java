@@ -3,8 +3,10 @@ package com.southwestasiafloat.blog.controller;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.southwestasiafloat.blog.common.Result;
+import com.southwestasiafloat.blog.entity.Article;
 import com.southwestasiafloat.blog.entity.Tag;
 import com.southwestasiafloat.blog.service.TagService;
+import com.southwestasiafloat.blog.vo.ArticleVo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -58,5 +60,13 @@ public class TagController {
         } catch (Exception e) {
             return Result.error(400, e.getMessage());
         }
+    }
+
+    @GetMapping("/{id}/articles")
+    public Result<IPage<ArticleVo>> listArticlesByTag(@PathVariable Long id,
+                                                      @RequestParam(defaultValue = "0") int page,
+                                                      @RequestParam(defaultValue = "10") int size) {
+        Page<Article> p = new Page<>(page + 1L, size);
+        return Result.ok(tagService.listArticlesByTagId(id, p));
     }
 }

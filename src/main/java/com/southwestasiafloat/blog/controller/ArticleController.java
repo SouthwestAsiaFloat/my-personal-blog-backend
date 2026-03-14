@@ -3,15 +3,19 @@ package com.southwestasiafloat.blog.controller;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.southwestasiafloat.blog.common.Result;
+import com.southwestasiafloat.blog.dto.ArticleAssignTagsDto;
 import com.southwestasiafloat.blog.dto.ArticleCreateDto;
 import com.southwestasiafloat.blog.dto.ArticleUpdateDto;
 import com.southwestasiafloat.blog.dto.ArticleRequestDto;
 import com.southwestasiafloat.blog.entity.Article;
+import com.southwestasiafloat.blog.entity.Tag;
 import com.southwestasiafloat.blog.service.ArticleService;
 import com.southwestasiafloat.blog.vo.ArticleVo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("") // 使用根路径，应用的 context-path 已设为 /api
@@ -74,5 +78,17 @@ public class ArticleController {
     public Result<Void> deleteArticle(@PathVariable("id") Long id) {
         articleService.delete(id);
         return Result.ok();
+    }
+
+    // 给文章绑定一个或多个标签（覆盖式）
+    @PutMapping("/article/{id}/tags")
+    public Result<List<Long>> assignTags(@PathVariable("id") Long id, @RequestBody ArticleAssignTagsDto dto) {
+        return Result.ok(articleService.assignTags(id, dto == null ? null : dto.getTagIds()));
+    }
+
+    // 获取某篇文章的全部标签
+    @GetMapping("/article/{id}/tags")
+    public Result<List<Tag>> listTagsByArticle(@PathVariable("id") Long id) {
+        return Result.ok(articleService.listTagsByArticleId(id));
     }
 }

@@ -6,13 +6,18 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.southwestasiafloat.blog.dto.ArticleCreateDto;
 import com.southwestasiafloat.blog.dto.ArticleUpdateDto;
 import com.southwestasiafloat.blog.entity.Article;
+import com.southwestasiafloat.blog.entity.ArticleTag;
 import com.southwestasiafloat.blog.entity.Category;
+import com.southwestasiafloat.blog.entity.Tag;
 import com.southwestasiafloat.blog.mapper.ArticleMapper;
+import com.southwestasiafloat.blog.mapper.ArticleTagMapper;
 import com.southwestasiafloat.blog.mapper.CategoryMapper;
+import com.southwestasiafloat.blog.mapper.TagMapper;
 import com.southwestasiafloat.blog.service.ArticleService;
 import com.southwestasiafloat.blog.vo.ArticleVo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -26,6 +31,12 @@ public class ArticleServiceImpl implements ArticleService {
 
     @Autowired
     private CategoryMapper categoryMapper;
+
+    @Autowired
+    private TagMapper tagMapper;
+
+    @Autowired
+    private ArticleTagMapper articleTagMapper;
 
     @Override
     public IPage<ArticleVo> list(Page<Article> page) {
@@ -124,6 +135,82 @@ public class ArticleServiceImpl implements ArticleService {
     public void delete(Long id) {
         if (id == null) throw new IllegalArgumentException("id 不能为空");
         articleMapper.deleteById(id);
+    }
+
+    @Override
+    @Transactional
+    public List<Long> assignTags(Long articleId, List<Long> tagIds) {
+        if (articleId == null) {
+            throw new IllegalArgumentException("articleId 不能为空");
+        }
+
+        Article article = articleMapper.selectById(articleId);
+        if (article == null) {
+            throw new IllegalArgumentException("Article not found");
+        }
+
+        if (tagIds == null || tagIds.isEmpty()) {
+            throw new IllegalArgumentException("至少需要一个 tagId");
+        }
+
+        // 去重 + 过滤非法 id，确保一次请求可绑定 1..N 个有效标签
+        List<Long> normalizedTagIds = tagIds.stream()
+                .filter(Objects::nonNull)
+                .filter(id -> id > 0)
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (normalizedTagIds.isEmpty()) {
+            throw new IllegalArgumentException("tagIds 不合法");
+        }
+
+        List<Tag> existingTags = tagMapper.selectBatchIds(normalizedTagIds);
+        Set<Long> existingTagIds = existingTags.stream()
+                .map(Tag::getId)
+                .collect(Collectors.toSet());
+
+        if (existingTagIds.size() != normalizedTagIds.size()) {
+            List<Long> missingTagIds = normalizedTagIds.stream()
+                    .filter(id -> !existingTagIds.contains(id))
+                    .collect(Collectors.toList());
+            throw new IllegalArgumentException("以下标签不存在: " + missingTagIds);
+        }
+
+        // 覆盖式绑定：先删除旧关系，再插入新关系
+        articleTagMapper.delete(new LambdaQueryWrapper<ArticleTag>()
+                .eq(ArticleTag::getArticleId, articleId));
+
+        for (Long tagId : normalizedTagIds) {
+            articleTagMapper.insert(ArticleTag.builder()
+                    .articleId(articleId)
+                    .tagId(tagId)
+                    .build());
+        }
+
+        // 更新文章更新时间，便于审计“最近修改”
+        article.setUpdateTime(LocalDateTime.now());
+        articleMapper.updateById(article);
+
+        return normalizedTagIds;
+    }
+
+    @Override
+    public List<Tag> listTagsByArticleId(Long articleId) {
+        if (articleId == null) throw new IllegalArgumentException("articleId 不能为空");
+
+        Article article = articleMapper.selectById(articleId);
+        if (article == null) throw new IllegalArgumentException("Article not found");
+
+        // 通过 article_tag 找 tag_id 列表
+        List<ArticleTag> relations = articleTagMapper.selectList(new LambdaQueryWrapper<ArticleTag>()
+                .eq(ArticleTag::getArticleId, articleId));
+
+        if (relations.isEmpty()) return Collections.emptyList();
+
+        List<Long> tagIds = relations.stream().map(ArticleTag::getTagId).distinct().collect(Collectors.toList());
+        if (tagIds.isEmpty()) return Collections.emptyList();
+
+        return tagMapper.selectBatchIds(tagIds);
     }
 
     private ArticleVo toVo(Article article) {
