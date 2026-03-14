@@ -8,6 +8,7 @@ import com.southwestasiafloat.blog.dto.UserRegisterDto;
 import com.southwestasiafloat.blog.service.AuthService;
 import com.southwestasiafloat.blog.vo.AuthVo;
 import com.southwestasiafloat.blog.vo.UserVo;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,13 +29,18 @@ public class AuthController {
     }
 
     @PostMapping({ "/login"})
-    public Result<AuthVo> login(@RequestBody UserLoginDto dto) throws Exception {
+    public Result<AuthVo> login(@RequestBody UserLoginDto dto, HttpServletRequest request) throws Exception {
+        // 覆盖请求体中的 ip/ua，统一使用服务端拿到的来源信息，避免客户端伪造
+        dto.setIp(resolveClientIp(request));
+        dto.setUserAgent(request.getHeader("User-Agent"));
         return Result.ok(authService.login(dto));
     }
 
     @PostMapping({ "/refresh"})
-    public Result<AuthVo> refresh(@RequestBody TokenRefreshDto dto) throws Exception {
-        return Result.ok(authService.refresh(dto.getRefreshToken(), dto.getIp(), dto.getUserAgent()));
+    public Result<AuthVo> refresh(@RequestBody TokenRefreshDto dto, HttpServletRequest request) throws Exception {
+        String ip = resolveClientIp(request);
+        String userAgent = request.getHeader("User-Agent");
+        return Result.ok(authService.refresh(dto.getRefreshToken(), ip, userAgent));
     }
 
     @PostMapping({ "/logout"})
@@ -42,5 +48,19 @@ public class AuthController {
         authService.logout(dto.getRefreshToken());
         return Result.ok(null);
     }
-}
 
+    private String resolveClientIp(HttpServletRequest request) {
+        // 常见反向代理头优先；本地开发通常会回落到 remoteAddr
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.trim().isEmpty()) {
+            return forwarded.split(",")[0].trim();
+        }
+
+        String realIp = request.getHeader("X-Real-IP");
+        if (realIp != null && !realIp.trim().isEmpty()) {
+            return realIp.trim();
+        }
+
+        return request.getRemoteAddr();
+    }
+}

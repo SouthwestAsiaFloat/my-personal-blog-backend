@@ -53,6 +53,8 @@ public class AuthServiceImpl implements AuthService {
 
         String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getRole());
         String rawRefreshToken = generateRawRefreshToken();
+
+        // refresh token 只存哈希值到数据库，避免明文泄漏风险
         insertRefreshToken(user.getId(), rawRefreshToken, dto.getIp(), dto.getUserAgent());
 
         return AuthVo.builder()
@@ -121,13 +123,13 @@ public class AuthServiceImpl implements AuthService {
         User user = authRepository.findById(existing.getUserId())
                 .orElseThrow(() -> new AuthenticationException("用户不存在"));
 
-        // refresh token rotation：旧 token 作废，并发放新 token
+        // refresh rotation：生成新 token，并尝试原子撤销旧 token（防并发重复刷新）
         String newRaw = generateRawRefreshToken();
         String newHash = sha256(newRaw);
-        existing.setRevoked(true);
-        existing.setRevokedAt(now);
-        existing.setReplacedBy(newHash);
-        authRepository.updateRefreshToken(existing);
+        boolean revoked = authRepository.revokeRefreshTokenIfActive(existing.getId(), now, newHash);
+        if (!revoked) {
+            throw new AuthenticationException("refresh token 已失效，请重新登录");
+        }
 
         insertRefreshToken(user.getId(), newRaw, ip, userAgent);
 
@@ -151,14 +153,13 @@ public class AuthServiceImpl implements AuthService {
         String hash = sha256(refreshToken);
         RefreshToken existing = authRepository.findRefreshTokenByHash(hash).orElse(null);
 
-        // 幂等：token 不存在或已撤销都算成功
-        if (existing == null || Boolean.TRUE.equals(existing.getRevoked())) {
+        // 幂等：token 不存在时直接视为成功
+        if (existing == null) {
             return;
         }
 
-        existing.setRevoked(true);
-        existing.setRevokedAt(LocalDateTime.now());
-        authRepository.updateRefreshToken(existing);
+        // 幂等：若已撤销/已过期，返回 false 也视作成功
+        authRepository.revokeRefreshTokenIfActive(existing.getId(), LocalDateTime.now(), null);
     }
 
     private void insertRefreshToken(Long userId, String rawRefreshToken, String ip, String userAgent) throws Exception {

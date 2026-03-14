@@ -1,6 +1,7 @@
 package com.southwestasiafloat.blog.repository.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.southwestasiafloat.blog.entity.RefreshToken;
 import com.southwestasiafloat.blog.entity.User;
 import com.southwestasiafloat.blog.mapper.RefreshTokenMapper;
@@ -8,6 +9,7 @@ import com.southwestasiafloat.blog.mapper.UserMapper;
 import com.southwestasiafloat.blog.repository.AuthRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Repository
@@ -62,5 +64,21 @@ public class AuthRepositoryImpl implements AuthRepository {
     public void updateRefreshToken(RefreshToken token) {
         refreshTokenMapper.updateById(token);
     }
-}
 
+    @Override
+    public boolean revokeRefreshTokenIfActive(Long tokenId, LocalDateTime now, String replacedByHash) {
+        LambdaUpdateWrapper<RefreshToken> wrapper = new LambdaUpdateWrapper<>();
+        wrapper.eq(RefreshToken::getId, tokenId)
+                .eq(RefreshToken::getRevoked, false)
+                .gt(RefreshToken::getExpiresAt, now)
+                .set(RefreshToken::getRevoked, true)
+                .set(RefreshToken::getRevokedAt, now);
+
+        // refresh rotation 场景下记录新 token 哈希，便于审计和追踪替换链
+        if (replacedByHash != null && !replacedByHash.trim().isEmpty()) {
+            wrapper.set(RefreshToken::getReplacedBy, replacedByHash);
+        }
+
+        return refreshTokenMapper.update(null, wrapper) > 0;
+    }
+}
