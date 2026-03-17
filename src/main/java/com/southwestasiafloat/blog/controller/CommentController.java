@@ -7,10 +7,14 @@ import com.southwestasiafloat.blog.dto.CommentCreateDto;
 import com.southwestasiafloat.blog.dto.CommentUpdateDto;
 import com.southwestasiafloat.blog.entity.Comment;
 import com.southwestasiafloat.blog.service.CommentService;
+import com.southwestasiafloat.blog.utils.AuthContextUtil;
 import com.southwestasiafloat.blog.vo.CommentVo;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/comments")
@@ -54,8 +58,14 @@ public class CommentController {
 
     /** 创建评论。 */
     @PostMapping
-    public Result<CommentVo> create(@RequestBody CommentCreateDto dto) {
+    public Result<CommentVo> create(@RequestBody CommentCreateDto dto, HttpServletRequest request) {
         try {
+            Long authUserId = AuthContextUtil.getCurrentUserId(request);
+            if (authUserId == null) {
+                return Result.error(401, "未登录或 token 无效");
+            }
+            // 不信任前端传入 userId，统一使用 access token 中的 userId。
+            dto.setUserId(authUserId);
             return Result.ok(commentService.create(dto));
         } catch (Exception e) {
             return Result.error(400, e.getMessage());
@@ -64,8 +74,15 @@ public class CommentController {
 
     /** 更新评论内容。 */
     @PutMapping("/{id}")
-    public Result<CommentVo> update(@PathVariable Long id, @RequestBody CommentUpdateDto dto) {
+    public Result<CommentVo> update(@PathVariable Long id, @RequestBody CommentUpdateDto dto, HttpServletRequest request) {
         try {
+            Optional<CommentVo> existing = commentService.getById(id);
+            if (existing.isEmpty()) {
+                return Result.error(404, "Comment not found");
+            }
+            if (!AuthContextUtil.isSelfOrAdmin(request, existing.get().getUserId())) {
+                return Result.error(403, "无权限修改该评论");
+            }
             return Result.ok(commentService.update(id, dto));
         } catch (Exception e) {
             return Result.error(400, e.getMessage());
@@ -74,8 +91,15 @@ public class CommentController {
 
     /** 删除评论。 */
     @DeleteMapping("/{id}")
-    public Result<Void> delete(@PathVariable Long id) {
+    public Result<Void> delete(@PathVariable Long id, HttpServletRequest request) {
         try {
+            Optional<CommentVo> existing = commentService.getById(id);
+            if (existing.isEmpty()) {
+                return Result.error(404, "Comment not found");
+            }
+            if (!AuthContextUtil.isSelfOrAdmin(request, existing.get().getUserId())) {
+                return Result.error(403, "无权限删除该评论");
+            }
             commentService.delete(id);
             return Result.ok();
         } catch (Exception e) {

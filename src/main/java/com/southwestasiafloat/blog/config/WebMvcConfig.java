@@ -21,15 +21,15 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(jwtAuthInterceptor)
                 .addPathPatterns("/**")
-                // 鉴权入口白名单：注册、登录、刷新、错误页、健康检查
+                // 鉴权入口白名单：注册、登录、刷新、登出、错误页、健康检查
                 .excludePathPatterns(
                         "/auth/register",
                         "/auth/login",
                         "/auth/refresh",
+                        "/auth/logout",
                         "/error",
                         "/actuator/**",
                         "/favicon.ico"
                 );
     }
 }
-

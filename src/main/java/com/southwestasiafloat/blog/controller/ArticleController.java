@@ -5,17 +5,20 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.southwestasiafloat.blog.common.Result;
 import com.southwestasiafloat.blog.dto.ArticleAssignTagsDto;
 import com.southwestasiafloat.blog.dto.ArticleCreateDto;
-import com.southwestasiafloat.blog.dto.ArticleUpdateDto;
 import com.southwestasiafloat.blog.dto.ArticleRequestDto;
+import com.southwestasiafloat.blog.dto.ArticleUpdateDto;
 import com.southwestasiafloat.blog.entity.Article;
 import com.southwestasiafloat.blog.entity.Tag;
 import com.southwestasiafloat.blog.service.ArticleService;
+import com.southwestasiafloat.blog.utils.AuthContextUtil;
 import com.southwestasiafloat.blog.vo.ArticleVo;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("") // 使用根路径，应用的 context-path 已设为 /api
@@ -63,26 +66,58 @@ public class ArticleController {
     /*    我是分隔栏     */
     // 创建文章
     @PostMapping("/article")
-    public Result<ArticleVo> createArticle(@RequestBody ArticleCreateDto dto) {
+    public Result<ArticleVo> createArticle(@RequestBody ArticleCreateDto dto, HttpServletRequest request) {
+        Long authUserId = AuthContextUtil.getCurrentUserId(request);
+        if (authUserId == null) {
+            return Result.error(401, "未登录或 token 无效");
+        }
+
+        // 不信任前端传入 userId，统一使用 access token 中的 userId。
+        dto.setUserId(authUserId);
         return Result.ok(articleService.create(dto));
     }
 
     // 更新文章
     @PutMapping("/article/{id}")
-    public Result<ArticleVo> updateArticle(@PathVariable("id") Long id, @RequestBody ArticleUpdateDto dto) {
+    public Result<ArticleVo> updateArticle(@PathVariable("id") Long id,
+                                           @RequestBody ArticleUpdateDto dto,
+                                           HttpServletRequest request) {
+        Optional<ArticleVo> existing = articleService.getById(id);
+        if (existing.isEmpty()) {
+            return Result.error(404, "Article not found");
+        }
+        if (!AuthContextUtil.isSelfOrAdmin(request, existing.get().getUserId())) {
+            return Result.error(403, "无权限修改该文章");
+        }
         return Result.ok(articleService.update(id, dto));
     }
 
     // 删除文章
     @DeleteMapping("/article/{id}")
-    public Result<Void> deleteArticle(@PathVariable("id") Long id) {
+    public Result<Void> deleteArticle(@PathVariable("id") Long id, HttpServletRequest request) {
+        Optional<ArticleVo> existing = articleService.getById(id);
+        if (existing.isEmpty()) {
+            return Result.error(404, "Article not found");
+        }
+        if (!AuthContextUtil.isSelfOrAdmin(request, existing.get().getUserId())) {
+            return Result.error(403, "无权限删除该文章");
+        }
         articleService.delete(id);
         return Result.ok();
     }
 
     // 给文章绑定一个或多个标签（覆盖式）
     @PutMapping("/article/{id}/tags")
-    public Result<List<Long>> assignTags(@PathVariable("id") Long id, @RequestBody ArticleAssignTagsDto dto) {
+    public Result<List<Long>> assignTags(@PathVariable("id") Long id,
+                                         @RequestBody ArticleAssignTagsDto dto,
+                                         HttpServletRequest request) {
+        Optional<ArticleVo> existing = articleService.getById(id);
+        if (existing.isEmpty()) {
+            return Result.error(404, "Article not found");
+        }
+        if (!AuthContextUtil.isSelfOrAdmin(request, existing.get().getUserId())) {
+            return Result.error(403, "无权限修改该文章标签");
+        }
         return Result.ok(articleService.assignTags(id, dto == null ? null : dto.getTagIds()));
     }
 

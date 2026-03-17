@@ -1,9 +1,11 @@
 package com.southwestasiafloat.blog.interceptor;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.southwestasiafloat.blog.common.Result;
 import com.southwestasiafloat.blog.utils.JwtTokenProvider;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Component;
@@ -58,8 +60,12 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
         }
 
         try {
-            if (!jwtTokenProvider.validateToken(token)) {
-                writeUnauthorized(response, "access token 无效或已过期");
+            Claims claims = jwtTokenProvider.getClaimsFromToken(token);
+
+            // refresh token 只能用于 /auth/refresh，不可当作访问令牌调用业务接口
+            String type = claims.get("type", String.class);
+            if ("refresh".equalsIgnoreCase(type)) {
+                writeUnauthorized(response, "请使用 access token 访问该接口");
                 return false;
             }
 
@@ -69,14 +75,15 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
                 return false;
             }
 
-            Claims claims = jwtTokenProvider.getClaimsFromToken(token);
             String role = claims.get("role", String.class);
-
             request.setAttribute(ATTR_USER_ID, userId);
             request.setAttribute(ATTR_ROLE, role);
             return true;
-        } catch (Exception ex) {
-            writeUnauthorized(response, "access token 验证失败");
+        } catch (ExpiredJwtException ex) {
+            writeUnauthorized(response, "access token 已过期");
+            return false;
+        } catch (JwtException | IllegalArgumentException ex) {
+            writeUnauthorized(response, "access token 无效");
             return false;
         }
     }
