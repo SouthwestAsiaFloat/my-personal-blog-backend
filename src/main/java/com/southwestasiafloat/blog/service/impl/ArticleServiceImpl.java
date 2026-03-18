@@ -14,6 +14,8 @@ import com.southwestasiafloat.blog.mapper.ArticleTagMapper;
 import com.southwestasiafloat.blog.mapper.CategoryMapper;
 import com.southwestasiafloat.blog.mapper.TagMapper;
 import com.southwestasiafloat.blog.service.ArticleService;
+import com.southwestasiafloat.blog.utils.CacheClient;
+import com.southwestasiafloat.blog.utils.RedisConstants;
 import com.southwestasiafloat.blog.vo.ArticleVo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -37,6 +40,9 @@ public class ArticleServiceImpl implements ArticleService {
 
     @Autowired
     private ArticleTagMapper articleTagMapper;
+
+    @Autowired
+    private CacheClient cacheClient;
 
     @Override
     public IPage<ArticleVo> list(Page<Article> page) {
@@ -63,15 +69,19 @@ public class ArticleServiceImpl implements ArticleService {
 
     @Override
     public Optional<ArticleVo> getById(Long id) {
-        Article a = articleMapper.selectById(id);
-        if (a == null) return Optional.empty();
-        ArticleVo vo = toVo(a);
-        // 加载 category name
-        if (vo.getCategoryId() != null) {
-            Category c = categoryMapper.selectById(vo.getCategoryId());
-            if (c != null) vo.setCategoryName(c.getName());
+        if (id == null) {
+            return Optional.empty();
         }
-        return Optional.of(vo);
+
+        ArticleVo cachedOrDb = cacheClient.queryWithPassThrough(
+                RedisConstants.CACHE_ARTICLE_DETAIL_KEY,
+                id,
+                ArticleVo.class,
+                this::loadArticleVoById,
+                RedisConstants.CACHE_ARTICLE_DETAIL_TTL,
+                TimeUnit.MINUTES
+        );
+        return Optional.ofNullable(cachedOrDb);
     }
 
     @Override
@@ -123,6 +133,8 @@ public class ArticleServiceImpl implements ArticleService {
         existing.setUpdateTime(LocalDateTime.now());
 
         articleMapper.updateById(existing);
+        evictArticleDetailCache(id);
+
         ArticleVo vo = toVo(existing);
         if (vo.getCategoryId() != null) {
             Category c = categoryMapper.selectById(vo.getCategoryId());
@@ -135,6 +147,7 @@ public class ArticleServiceImpl implements ArticleService {
     public void delete(Long id) {
         if (id == null) throw new IllegalArgumentException("id 不能为空");
         articleMapper.deleteById(id);
+        evictArticleDetailCache(id);
     }
 
     @Override
@@ -190,6 +203,7 @@ public class ArticleServiceImpl implements ArticleService {
         // 更新文章更新时间，便于审计“最近修改”
         article.setUpdateTime(LocalDateTime.now());
         articleMapper.updateById(article);
+        evictArticleDetailCache(articleId);
 
         return normalizedTagIds;
     }
@@ -211,6 +225,29 @@ public class ArticleServiceImpl implements ArticleService {
         if (tagIds.isEmpty()) return Collections.emptyList();
 
         return tagMapper.selectBatchIds(tagIds);
+    }
+
+    private ArticleVo loadArticleVoById(Long id) {
+        Article a = articleMapper.selectById(id);
+        if (a == null) {
+            return null;
+        }
+
+        ArticleVo vo = toVo(a);
+        if (vo.getCategoryId() != null) {
+            Category c = categoryMapper.selectById(vo.getCategoryId());
+            if (c != null) {
+                vo.setCategoryName(c.getName());
+            }
+        }
+        return vo;
+    }
+
+    private void evictArticleDetailCache(Long articleId) {
+        if (articleId == null) {
+            return;
+        }
+        cacheClient.delete(RedisConstants.CACHE_ARTICLE_DETAIL_KEY + articleId);
     }
 
     private ArticleVo toVo(Article article) {

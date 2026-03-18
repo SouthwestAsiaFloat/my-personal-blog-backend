@@ -7,6 +7,7 @@ import com.southwestasiafloat.blog.entity.User;
 import com.southwestasiafloat.blog.exception.AuthenticationException;
 import com.southwestasiafloat.blog.repository.AuthRepository;
 import com.southwestasiafloat.blog.service.AuthService;
+import com.southwestasiafloat.blog.service.TokenService;
 import com.southwestasiafloat.blog.utils.JwtTokenProvider;
 import com.southwestasiafloat.blog.utils.UserValidator;
 import com.southwestasiafloat.blog.vo.AuthVo;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -26,13 +28,16 @@ public class AuthServiceImpl implements AuthService {
     private final AuthRepository authRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final TokenService tokenService;
 
     public AuthServiceImpl(AuthRepository authRepository,
                            PasswordEncoder passwordEncoder,
-                           JwtTokenProvider jwtTokenProvider) {
+                           JwtTokenProvider jwtTokenProvider,
+                           TokenService tokenService) {
         this.authRepository = authRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.tokenService = tokenService;
     }
 
     @Override
@@ -54,7 +59,7 @@ public class AuthServiceImpl implements AuthService {
         String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getRole());
         String rawRefreshToken = generateRawRefreshToken();
 
-        // refresh token 只存哈希值到数据库，避免明文泄漏风险
+        // refresh token 只存哈希值到数据库，明文仅返回给前端；Redis存储用于快速校验
         insertRefreshToken(user.getId(), rawRefreshToken, dto.getIp(), dto.getUserAgent());
 
         return AuthVo.builder()
@@ -109,7 +114,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         String oldHash = sha256(refreshToken);
-        RefreshToken existing = authRepository.findRefreshTokenByHash(oldHash)
+        RefreshToken existing = loadRefreshTokenWithFallback(oldHash)
                 .orElseThrow(() -> new AuthenticationException("refresh token 无效"));
 
         LocalDateTime now = LocalDateTime.now();
@@ -123,7 +128,7 @@ public class AuthServiceImpl implements AuthService {
         User user = authRepository.findById(existing.getUserId())
                 .orElseThrow(() -> new AuthenticationException("用户不存在"));
 
-        // refresh rotation：生成新 token，并尝试原子撤销旧 token（防并发重复刷新）
+        // refresh rotation：生成新 token，并原子撤销旧 token（防并发重复刷新）
         String newRaw = generateRawRefreshToken();
         String newHash = sha256(newRaw);
         boolean revoked = authRepository.revokeRefreshTokenIfActive(existing.getId(), now, newHash);
@@ -131,6 +136,7 @@ public class AuthServiceImpl implements AuthService {
             throw new AuthenticationException("refresh token 已失效，请重新登录");
         }
 
+        tokenService.revokeRefreshToken(oldHash, now, newHash);
         insertRefreshToken(user.getId(), newRaw, ip, userAgent);
 
         String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getRole());
@@ -151,7 +157,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         String hash = sha256(refreshToken);
-        RefreshToken existing = authRepository.findRefreshTokenByHash(hash).orElse(null);
+        RefreshToken existing = loadRefreshTokenWithFallback(hash).orElse(null);
 
         // 幂等：token 不存在时直接视为成功
         if (existing == null) {
@@ -160,6 +166,18 @@ public class AuthServiceImpl implements AuthService {
 
         // 幂等：若已撤销/已过期，返回 false 也视作成功
         authRepository.revokeRefreshTokenIfActive(existing.getId(), LocalDateTime.now(), null);
+        tokenService.deleteRefreshToken(hash);
+    }
+
+    private Optional<RefreshToken> loadRefreshTokenWithFallback(String tokenHash) {
+        Optional<RefreshToken> redisToken = tokenService.findRefreshTokenByHash(tokenHash);
+        if (redisToken.isPresent()) {
+            return redisToken;
+        }
+
+        Optional<RefreshToken> dbToken = authRepository.findRefreshTokenByHash(tokenHash);
+        dbToken.ifPresent(tokenService::saveRefreshToken);
+        return dbToken;
     }
 
     private void insertRefreshToken(Long userId, String rawRefreshToken, String ip, String userAgent) throws Exception {
@@ -174,7 +192,9 @@ public class AuthServiceImpl implements AuthService {
         token.setRevoked(false);
         token.setIp(ip);
         token.setUserAgent(userAgent);
+
         authRepository.insertRefreshToken(token);
+        tokenService.saveRefreshToken(token);
     }
 
     private UserVo toUserVo(User user) {
